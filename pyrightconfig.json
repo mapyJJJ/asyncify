@@ -1,0 +1,6 @@
+{
+    "stubPath": "stubs",
+    "ignore": [
+        "stubs"
+    ]
+}
