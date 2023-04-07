@@ -13,43 +13,34 @@ logger = Logger(__name__)
 
 def echo_flag():
     """
-    Print flag to stdout for use with -- echo - flag. Args : None. None. Side Effects : Prints flag
+    `consumer` ascii string
     """
     logger.info(
         textwrap.dedent(
+            """                                                
+   ___ ___  _ __  ___ _   _ _ __ ___   ___ _ __ 
+  / __/ _ \| '_ \/ __| | | | '_ ` _ \ / _ \ '__|
+ | (_| (_) | | | \__ \ |_| | | | | | |  __/ |   
+  \___\___/|_| |_|___/\__,_|_| |_| |_|\___|_|   
+                                                
             """
-                                 _  __               _____          _                            
-     /\                        (_)/ _|             / ____|        | |                           
-    /  \   ___ _   _ _ __   ___ _| |_ _   _ ______| |    _   _ ___| |_ ___  _ __ ___   ___ _ __ 
-   / /\ \ / __| | | | '_ \ / __| |  _| | | |______| |   | | | / __| __/ _ \| '_ ` _ \ / _ \ '__|
-  / ____ \\__ \ |_| | | | | (__| | | | |_| |      | |___| |_| \__ \ || (_) | | | | | |  __/ |   
- /_/    \_\___/\__, |_| |_|\___|_|_|  \__, |       \_____\__,_|___/\__\___/|_| |_| |_|\___|_|   
-                __/ |                  __/ |                                                    
-               |___/                  |___/                                                     """
         )
     )
 
 
 class ConsumerBase(ABC):
+    """
+    consumer abstract 
+    """
     @abstractmethod
     def run(self):
         """
-        Runs the test. Subclasses should override this method to perform the actual test. This method is called by the run method
+        subclasses should override this method
         """
-        """
-        Runs the test. Subclasses should override this method to perform the actual test
-        """
-        ...
-
+        Ellipsis
 
 class Consumer(ConsumerBase, Ack):
     def __str__(self) -> str:
-        """
-        Returns a string representation of the consumer. This is used to print the name of the consumer when it is accessed by the : class : ` ~plexapi. core. Consumer ` object.
-
-
-        @return A string representation of the consumer for debugging purposes. Example :. >>> consumer = Consumer ( name ='myconsumer '
-        """
         return f"<consumer {id(self)}>"
 
     def __init__(self, queue: Queue) -> None:
@@ -60,7 +51,10 @@ class Consumer(ConsumerBase, Ack):
 
         @return The newly created queue or None if there was no queue associated with this task. : 0. 5 Added the __name__
         """
+        # Acl.__init__(queue)
+        # 消费端ack确认机制，初始化将会启动ack子线程检查, 处理任务并进行确认
         super().__init__(queue)
+
         self.__queue = queue
         self.__name__ = self.__str__
         self.__repr__ = self.__str__
@@ -74,18 +68,18 @@ class Consumer(ConsumerBase, Ack):
 
         @return Task result or None if task failed to run or not acked by queue. no_ack method
         """
+        # entry逻辑会提前将消息加入到no_ack queue中，处理完成后，将会从队列中移除
+        # 如果超时还未移出no_ack队列，则会重新将消息投入队列中，等待下次被消费
+        # 如果需要ack确认机制，请将 queue.ack 设为 True
+        self.entry(message_data)
+        args, kwargs = message_data.message
+
         try:
-            self.entry(message_data)
-            args, kwargs = message_data.message
+            # 执行task
             task_res = callable_func(*args, **kwargs)
-            logger.info(
-                "message {} {} task result: {}".format(
-                    str(message_data.id_), str(message_data.callable_func_ident), str(task_res)
-                )
-            )
         except Exception as e:
-            # error retry
-            # Run a task with a retry count.
+            # 执行task失败后，进行重试
+            # 
             if message_data.retry_count < message_data.max_retry_count:
                 message_data.retry_count += 1
                 return self.run_task(message_data, callable_func)
@@ -95,6 +89,11 @@ class Consumer(ConsumerBase, Ack):
                 self.no_ack(message_data)
             return
 
+        logger.info(
+            "message {} {} task result: {}".format(
+                str(message_data.id_), str(message_data.callable_func_ident), str(task_res)
+            )
+        )
         self.ack(message_data.id_)
 
     def run(self):

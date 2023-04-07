@@ -28,44 +28,62 @@ class Queue(QueueBase):
         self,
         name: str,
         redis_client: Any,
+        ack: bool = False,
+        max_retry_count: int = 3,
+        ack_timeout: int = 30 * 60,
         serialize_factory: Callable = json.dumps,
         unserialize_factory: Callable = json.loads,
-        ack: bool = False,
-        ack_timeout: int = 30 * 60,
     ) -> None:
         """
-        Initialize the storage with a name. This is the constructor for the Storage class. You can override this in your subclass if you want to do something other than create a : class : ` Storage ` object yourself.
+        Initialize the storage with a name. 
+        This is the constructor for the Storage class. 
+        You can override this in your subclass if you want to do something other than create a : class : ` Storage ` object yourself.
 
-        @param name - The name of the storage. It will be used to refer to it in the event of a change in the storage's state.
-        @param ack - Whether to acknowledge the request that is made or not.
-        @param serialize_factory - A callable that takes a string and returns a serializable object.
-        @param unserialize_factory - A callable that takes a string and returns a deserialized object.
-
-        @return An instance of the Storage class that can be used to interact with the storage and get access to it
+        @param name - 消息队列名称
+        @param ack - 是够需要开启ack机制
+        @param ack_timeout - 消息处理超时时间（s）
+        @param serialize_factory - 序列化器
+        @param unserialize_factory - 反序列化器
+        @param redis_client - redis客户端对象
+        @param max_retry_count - 最大重试次数
         """
+        # queue.__name__
         self.__name__ = name
+
+        # queue.ack
         self.ack = ack
+
+        # queue.ack_timeout
         self.ack_timeout = ack_timeout
+
+        # queue.redis_client
         self.redis_client = redis_client
+
+        # queue.max_retry_count
+        self.max_retry_count = max_retry_count
+
+        # queue.__storage object
         self.__storage = Storage(
             storage_name=name,
             serialize_factory=serialize_factory,
             unserialize_factory=unserialize_factory,
             redis_client=redis_client,
         )
+
+        # 用于缓存注册在队列上task信息
         self.callable_ident_map = {}
 
-    def queue_size(self):
+    def queue_size(self) -> int:
         """
-        Get the size of the queue. This is used to determine how many items are in the queue for a given job.
-
-
-        @return The number of items in the queue in bytes or None if there are
+        获取队列当前总长度
+        Get the size of the queue. 
+        This is used to determine how many items are in the queue for a given job.
         """
         return self.__storage.size
 
     def get_message(self) -> dict:
         """
+        pop 队列中的消息，该方法是阻塞的
         Get the message from the storage. This is a low - level method that should be used by clients to get the message that is stored in the storage.
 
 
@@ -75,6 +93,7 @@ class Queue(QueueBase):
 
     def send_message(self, message: Any):
         """
+        将消息投放到队列中
         Send a message to the server. This is a low - level method and should not be called directly by user code.
 
         @param message - The message to send. Must be serializable.

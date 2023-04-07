@@ -2,5 +2,6 @@
     "stubPath": "stubs",
     "ignore": [
         "stubs"
-    ]
+    ],
+    "reportInvalidStringEscapeSequence": "none"
 }

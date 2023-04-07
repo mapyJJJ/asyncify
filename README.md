@@ -55,4 +55,4 @@ if __name__ == "__main__":
 
 消费者运行截图:
 
-![x](consumer.PNG)
+![x](consumer-info.PNG)

@@ -1,4 +1,4 @@
-from typing import Type, cast
+from typing import cast
 import click
 import importlib
 import textwrap

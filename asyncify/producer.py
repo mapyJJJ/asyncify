@@ -12,9 +12,7 @@ from .queue_ import Queue
 
 class ProducerBase(ABC):
     @abstractmethod
-    def register_task(
-        self, timeout: int = 30 * 60, timeout_retry: bool = False, ack: bool = True
-    ):
+    def register_task(self, cls: Optional[Callable] = None):
         """
         Register a task to be executed. This is a no - op if the task is already registered.
 
@@ -61,32 +59,27 @@ class Producer(ProducerBase):
     def register_task(
         self,
         cls: Optional[Callable] = None,
-        timeout: int = 30 * 60,
-        timeout_retry: bool = False,
-        ack: bool = True,
+        ack_timeout: int = 30 * 60,
+        max_retry_count: int = 0
     ):
         """
         Register a ta`sk` to be executed when : meth : ` run ` is called. This is useful for tasks that need to be executed in a different thread than the one that will be running.
 
         @param cls - The class to register. If None the class will be registered as a function that does nothing.
         @param timeout - The timeout in seconds for the task to run.
-        @param timeout_retry - Whether to retry the task if it times out.
         @param ack - Whether to acknowledgement the task with the server.
 
         @return A decorator that can be used to unregister the task from the queue. Example :. from twisted. internet import
         """
+        self.ack_timeout = ack_timeout
+        self.max_retry_count = max_retry_count
+
         # Returns a callable that will be called when a task is registered.
         if not cls:
-            return lambda cls: self.register_task(
-                cls=cls, timeout=timeout, timeout_retry=timeout_retry, ack=ack
-            )
+            return lambda cls: self.register_task(cls=cls)
         # Raise ClsIsNotCallable if cls is not callable.
         if not callable(cls):
             raise ClsIsNotCallable()
-
-        self.ack = ack
-        self.timeout = timeout
-        self.timeout_retry = timeout_retry
 
         callable_ident = self.__queue.__name__ + ":" + cls.__name__
         cls.delay = partial(self.delay, callable_ident=callable_ident)
@@ -99,11 +92,17 @@ class Producer(ProducerBase):
 
         @param callable_ident - Identifies the callable to call when the event is
         """
+        ack_timeout = self.ack_timeout or self.__queue.ack_timeout
+        max_retry_count = self.max_retry_count or self.__queue.max_retry_count
+        
         message_data = MessageData(
             id_=id_factory(),
             message=(args, kwargs),
+            ack_timeout=ack_timeout,
+            max_retry_count=max_retry_count,
             callable_func_ident=callable_ident,
         ).__dict__
+
         try:
             self.__queue.send_message(message_data)
         except RedisError as e:
