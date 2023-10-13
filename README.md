@@ -42,14 +42,14 @@ if __name__ == "__main__":
     import time
     while True:
         time.sleep(1)
-        async_add.delay(1,2)
+        add.delay(1,2)
 ```
 
 运行当前task.py脚本，脚本每个1s会调用add方法，每次调用会产生一个消息，这些消息将等待消费者的执行
 
 - 使用python运行: `python3 task.py`
 
-- 启动消费者：`asyncify-ctl --queue task.message_queue customer`
+- 启动消费者：`asyncify-cli --queue task.message_queue customer`
 
 
 
